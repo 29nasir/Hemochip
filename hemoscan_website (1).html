@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redchief — Smart Anemia Screening</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #050a0e;
+  --panel: #0a1520;
+  --border: #0d2235;
+  --red: #ff3b5c;
+  --cyan: #00e5ff;
+  --amber: #ffaa00;
+  --green: #00ff88;
+  --text: #e8f4f8;
+  --dim: #4a7a96;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; min-height:100vh; }
+body::before {
+  content:''; position:fixed; inset:0;
+  background-image: linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px), linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);
+  background-size:40px 40px; pointer-events:none; z-index:0;
+}
+.wrap { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:20px; }
+
+/* HEADER */
+header { display:flex; justify-content:space-between; align-items:center; padding-bottom:18px; border-bottom:1px solid var(--border); margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-box { width:38px; height:38px; background:linear-gradient(135deg,var(--red),var(--amber)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; animation:glow 2s ease-in-out infinite; }
+@keyframes glow { 0%,100%{box-shadow:0 0 15px rgba(255,59,92,0.4)} 50%{box-shadow:0 0 30px rgba(255,59,92,0.8)} }
+.logo h1 { font-size:20px; font-weight:800; letter-spacing:2px; }
+.logo span { font-family:'Space Mono',monospace; font-size:9px; color:var(--dim); display:block; letter-spacing:3px; }
+.header-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.live-badge { display:flex; align-items:center; gap:6px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); padding:6px 14px; border-radius:100px; font-family:'Space Mono',monospace; font-size:10px; color:var(--green); }
+.dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.lang-btn { font-family:'Space Mono',monospace; font-size:10px; padding:6px 14px; border-radius:100px; border:1px solid var(--border); background:transparent; color:var(--dim); cursor:pointer; transition:all 0.2s; }
+.lang-btn:hover, .lang-btn.active { border-color:var(--cyan); color:var(--cyan); background:rgba(0,229,255,0.08); }
+
+/* CONNECTION BAR */
+.conn-bar { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 20px; display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+.conn-input { background:rgba(0,0,0,0.3); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Space Mono',monospace; font-size:11px; width:160px; outline:none; }
+.conn-input:focus { border-color:var(--cyan); }
+.btn { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:1px; padding:9px 18px; border-radius:8px; border:1px solid; cursor:pointer; transition:all 0.2s; text-transform:uppercase; }
+.btn-green { background:var(--green); border-color:var(--green); color:#000; font-weight:700; }
+.btn-green:hover { opacity:0.85; }
+.btn-red2 { background:var(--red); border-color:var(--red); color:#fff; font-weight:700; }
+.btn-outline { background:transparent; border-color:var(--border); color:var(--dim); }
+.btn-outline:hover { border-color:var(--cyan); color:var(--cyan); }
+.btn-amber { background:var(--amber); border-color:var(--amber); color:#000; font-weight:700; }
+.conn-status { font-family:'Space Mono',monospace; font-size:10px; margin-left:auto; }
+.conn-status.connected { color:var(--green); }
+.conn-status.disconnected { color:var(--red); }
+
+/* PATIENT BAR */
+.pat-bar { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 20px; display:flex; gap:24px; margin-bottom:18px; flex-wrap:wrap; align-items:center; }
+.pat-field label { font-family:'Space Mono',monospace; font-size:8px; color:var(--dim); letter-spacing:2px; display:block; margin-bottom:3px; }
+.pat-field input, .pat-field select {
+  background:rgba(0,0,0,0.3); border:1px solid var(--border); color:var(--text);
+  padding:6px 10px; border-radius:6px; font-size:12px; font-family:'Syne',sans-serif; outline:none;
+}
+.pat-field input:focus, .pat-field select:focus { border-color:var(--cyan); }
+.skin-wrap { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.skin-wrap label { font-family:'Space Mono',monospace; font-size:8px; color:var(--dim); letter-spacing:2px; }
+.skin-dot { width:22px; height:22px; border-radius:50%; border:2px solid transparent; cursor:pointer; transition:all 0.2s; }
+.skin-dot.s1 { background:#f5c5a3; }
+.skin-dot.s2 { background:#c68642; }
+.skin-dot.s3 { background:#5c3317; }
+.skin-dot.active { border-color:var(--cyan); transform:scale(1.25); }
+
+/* METRICS */
+.metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px; }
+.mcard { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; position:relative; overflow:hidden; transition:transform 0.2s; }
+.mcard:hover { transform:translateY(-2px); }
+.mcard::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+.mcard.hr::before { background:var(--red); }
+.mcard.sp::before { background:var(--cyan); }
+.mcard.hb::before { background:var(--amber); }
+.mcard-top { display:flex; justify-content:space-between; margin-bottom:14px; }
+.mcard-lbl { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:3px; color:var(--dim); text-transform:uppercase; }
+.mcard-val { font-family:'Space Mono',monospace; font-size:48px; font-weight:700; line-height:1; margin-bottom:4px; }
+.mcard.hr .mcard-val { color:var(--red); }
+.mcard.sp .mcard-val { color:var(--cyan); }
+.mcard.hb .mcard-val { color:var(--amber); }
+.mcard-unit { font-family:'Space Mono',monospace; font-size:11px; color:var(--dim); margin-bottom:12px; }
+.mbar { height:3px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden; margin-bottom:6px; }
+.mbar-fill { height:100%; border-radius:2px; transition:width 1s; }
+.mcard.hr .mbar-fill { background:var(--red); }
+.mcard.sp .mbar-fill { background:var(--cyan); }
+.mcard.hb .mbar-fill { background:var(--amber); }
+.mcard-range { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:8px; color:var(--dim); }
+
+/* ALERT BANNER */
+.alert-banner { display:none; background:rgba(255,59,92,0.15); border:1px solid var(--red); border-radius:12px; padding:14px 20px; margin-bottom:18px; align-items:center; gap:14px; }
+.alert-banner.show { display:flex; animation:shake 0.5s; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+.alert-icon { font-size:24px; }
+.alert-text h3 { color:var(--red); font-size:16px; margin-bottom:2px; }
+.alert-text p { font-size:12px; color:var(--dim); }
+
+/* BOTTOM GRID */
+.bottom { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
+.bcard { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; }
+.bcard-title { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:3px; color:var(--dim); text-transform:uppercase; margin-bottom:16px; }
+
+/* ANEMIA STATUS */
+.anemia-row { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+.anemia-icon { width:52px; height:52px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0; }
+.anemia-icon.normal { background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.3); }
+.anemia-icon.mild { background:rgba(255,170,0,0.1); border:1px solid rgba(255,170,0,0.3); }
+.anemia-icon.moderate { background:rgba(255,100,0,0.1); border:1px solid rgba(255,100,0,0.3); }
+.anemia-icon.severe { background:rgba(255,59,92,0.1); border:1px solid rgba(255,59,92,0.3); }
+.anemia-status { font-size:22px; font-weight:800; }
+.anemia-status.normal { color:var(--green); }
+.anemia-status.mild { color:var(--amber); }
+.anemia-status.moderate { color:#ff6400; }
+.anemia-status.severe { color:var(--red); }
+.anemia-desc { font-size:11px; color:var(--dim); margin-top:3px; line-height:1.5; }
+
+/* HB SCALE */
+.scale-lbl { font-family:'Space Mono',monospace; font-size:8px; color:var(--dim); letter-spacing:2px; margin-bottom:6px; }
+.hb-scale { height:8px; border-radius:4px; background:linear-gradient(90deg,#ff3b5c 0%,#ff3b5c 30%,#ffaa00 30%,#ffaa00 55%,#00ff88 55%,#00ff88 100%); position:relative; margin-bottom:6px; }
+.hb-ptr { position:absolute; top:-4px; width:16px; height:16px; background:#fff; border-radius:50%; border:3px solid var(--amber); transform:translateX(-50%); transition:left 1s; }
+.scale-nums { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:8px; color:var(--dim); }
+
+/* AI ADVICE */
+.ai-box { background:rgba(0,229,255,0.04); border:1px solid rgba(0,229,255,0.15); border-radius:10px; padding:14px; min-height:80px; font-size:12px; line-height:1.7; color:var(--text); margin-bottom:12px; }
+.ai-typing { display:inline-block; width:6px; height:14px; background:var(--cyan); animation:blink 0.7s infinite; vertical-align:middle; margin-left:3px; }
+
+/* WAVEFORM */
+.wave-card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; }
+.wave-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+.wave-title { font-size:13px; font-weight:600; }
+.wl-badges { display:flex; gap:6px; flex-wrap:wrap; }
+.wl { font-family:'Space Mono',monospace; font-size:9px; padding:3px 9px; border-radius:100px; border:1px solid; }
+.wl.r { color:var(--red); border-color:rgba(255,59,92,0.3); background:rgba(255,59,92,0.08); }
+.wl.ir { color:var(--cyan); border-color:rgba(0,229,255,0.3); background:rgba(0,229,255,0.08); }
+.wl.am { color:var(--amber); border-color:rgba(255,170,0,0.3); background:rgba(255,170,0,0.08); }
+#waveCanvas { width:100%; height:120px; display:block; }
+
+/* HISTORY */
+.hist-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); font-size:11px; }
+.hist-row:last-child { border-bottom:none; }
+.hist-time { font-family:'Space Mono',monospace; font-size:9px; color:var(--dim); }
+.hist-vals { display:flex; gap:12px; font-family:'Space Mono',monospace; font-size:10px; }
+.h-hr { color:var(--red); } .h-sp { color:var(--cyan); } .h-hb { color:var(--amber); }
+.hist-tag { font-size:9px; padding:2px 8px; border-radius:100px; }
+.hist-tag.normal { background:rgba(0,255,136,0.1); color:var(--green); }
+.hist-tag.mild { background:rgba(255,170,0,0.1); color:var(--amber); }
+.hist-tag.severe { background:rgba(255,59,92,0.1); color:var(--red); }
+
+/* ACTIONS */
+.actions { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+
+/* TREND CHART */
+.trend-card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; }
+
+/* FINGER OVERLAY */
+.overlay { display:none; position:fixed; inset:0; background:rgba(5,10,14,0.96); z-index:999; align-items:center; justify-content:center; flex-direction:column; gap:16px; }
+.overlay.show { display:flex; }
+.overlay-icon { font-size:72px; animation:pulse2 1.5s ease-in-out infinite; }
+@keyframes pulse2 { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+.overlay h2 { font-size:22px; font-weight:800; }
+.overlay p { font-family:'Space Mono',monospace; font-size:11px; color:var(--dim); text-align:center; }
+.scan-bar { width:180px; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+.scan-fill { height:100%; background:var(--cyan); animation:scanfill 2.5s linear forwards; }
+@keyframes scanfill { from{width:0} to{width:100%} }
+
+/* FOOTER */
+footer { text-align:center; font-family:'Space Mono',monospace; font-size:9px; color:var(--dim); padding:20px 0; letter-spacing:2px; border-top:1px solid var(--border); }
+
+@media(max-width:700px) {
+  .metrics { grid-template-columns:1fr; }
+  .bottom { grid-template-columns:1fr; }
+  .mcard-val { font-size:38px; }
+}
+</style>
+</head>
+<body>
+
+<!-- FINGER OVERLAY -->
+<div class="overlay" id="overlay">
+  <div class="overlay-icon">🫵</div>
+  <h2 id="ol-title">Place Your Finger</h2>
+  <p id="ol-sub">Keep finger still on sensor<br>for accurate reading</p>
+  <div class="scan-bar"><div class="scan-fill" id="scanFill"></div></div>
+  <p id="ol-pct" style="color:var(--cyan);font-family:'Space Mono',monospace;font-size:12px;">Scanning...</p>
+</div>
+
+<div class="wrap">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-box">🩸</div>
+    <div>
+      <h1>HEMOSCAN</h1>
+      <span data-en="Non-Invasive Health Monitor" data-hi="गैर-आक्रामक स्वास्थ्य मॉनिटर">Non-Invasive Health Monitor</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="dot"></div><span data-en="LIVE" data-hi="लाइव">LIVE</span></div>
+    <button class="lang-btn active" id="langBtn" onclick="toggleLang()">🇮🇳 हिंदी</button>
+  </div>
+</header>
+
+<!-- ALERT BANNER -->
+<div class="alert-banner" id="alertBanner">
+  <div class="alert-icon">🚨</div>
+  <div class="alert-text">
+    <h3 id="alertTitle" data-en="EMERGENCY ALERT" data-hi="आपातकालीन चेतावनी">EMERGENCY ALERT</h3>
+    <p id="alertMsg">Critical hemoglobin level detected. Please consult doctor immediately.</p>
+  </div>
+  <button class="btn btn-outline" onclick="document.getElementById('alertBanner').classList.remove('show')" style="margin-left:auto">✕</button>
+</div>
+
+<!-- CONNECTION BAR -->
+<div class="conn-bar">
+  <div>
+    <label style="font-family:'Space Mono',monospace;font-size:8px;color:var(--dim);letter-spacing:2px;display:block;margin-bottom:4px;" data-en="ESP32 IP ADDRESS" data-hi="ESP32 पता">ESP32 IP ADDRESS</label>
+    <input class="conn-input" id="ipInput" value="192.168.4.1" placeholder="192.168.4.1" />
+  </div>
+  <button class="btn btn-green" onclick="connectDevice()" id="connBtn">⚡ <span data-en="CONNECT" data-hi="जोड़ें">CONNECT</span></button>
+  <button class="btn btn-outline" onclick="startDemo()">🎮 <span data-en="DEMO MODE" data-hi="डेमो मोड">DEMO MODE</span></button>
+  <div class="conn-status disconnected" id="connStatus" data-en="● NOT CONNECTED" data-hi="● जुड़ा नहीं">● NOT CONNECTED</div>
+</div>
+
+<!-- PATIENT BAR -->
+<div class="pat-bar">
+  <div class="pat-field">
+    <label data-en="PATIENT NAME" data-hi="मरीज़ का नाम">PATIENT NAME</label>
+    <input id="patName" value="Patient" style="width:140px;" />
+  </div>
+  <div class="pat-field">
+    <label data-en="AGE" data-hi="उम्र">AGE</label>
+    <input id="patAge" value="24" style="width:60px;" />
+  </div>
+  <div class="pat-field">
+    <label data-en="GENDER" data-hi="लिंग">GENDER</label>
+    <select id="patGender">
+      <option value="female" data-en="Female" data-hi="महिला">Female</option>
+      <option value="male" data-en="Male" data-hi="पुरुष">Male</option>
+    </select>
+  </div>
+  <div class="pat-field">
+    <label data-en="TIME" data-hi="समय">TIME</label>
+    <input id="clockEl" readonly style="width:90px;" />
+  </div>
+  <div class="skin-wrap">
+    <label data-en="SKIN TONE" data-hi="त्वचा टोन">SKIN TONE</label>
+    <div style="display:flex;gap:6px;">
+      <div class="skin-dot s1" onclick="setSkin(1,this)" title="Light"></div>
+      <div class="skin-dot s2 active" onclick="setSkin(2,this)" title="Medium"></div>
+      <div class="skin-dot s3" onclick="setSkin(3,this)" title="Dark"></div>
+    </div>
+  </div>
+</div>
+
+<!-- METRICS -->
+<div class="metrics">
+  <div class="mcard hr">
+    <div class="mcard-top">
+      <div class="mcard-lbl" data-en="HEART RATE" data-hi="हृदय गति">HEART RATE</div>
+      <span style="font-size:16px;">❤️</span>
+    </div>
+    <div class="mcard-val" id="hrVal">--</div>
+    <div class="mcard-unit" data-en="beats per minute" data-hi="धड़कन प्रति मिनट">beats per minute</div>
+    <div class="mbar"><div class="mbar-fill" id="hrBar" style="width:0%"></div></div>
+    <div class="mcard-range"><span>40</span><span data-en="Normal: 60–100" data-hi="सामान्य: 60–100">Normal: 60–100</span><span>160</span></div>
+  </div>
+  <div class="mcard sp">
+    <div class="mcard-top">
+      <div class="mcard-lbl" data-en="BLOOD OXYGEN (SpO2)" data-hi="रक्त ऑक्सीजन">BLOOD OXYGEN (SpO2)</div>
+      <span style="font-size:16px;">💧</span>
+    </div>
+    <div class="mcard-val" id="spo2Val">--</div>
+    <div class="mcard-unit" data-en="% oxygen saturation" data-hi="% ऑक्सीजन संतृप्ति">% oxygen saturation</div>
+    <div class="mbar"><div class="mbar-fill" id="spo2Bar" style="width:0%"></div></div>
+    <div class="mcard-range"><span>85%</span><span data-en="Normal: 95–100%" data-hi="सामान्य: 95–100%">Normal: 95–100%</span><span>100%</span></div>
+  </div>
+  <div class="mcard hb">
+    <div class="mcard-top">
+      <div class="mcard-lbl" data-en="HEMOGLOBIN (Hb)" data-hi="हीमोग्लोबिन">HEMOGLOBIN (Hb)</div>
+      <span style="font-size:16px;">🧬</span>
+    </div>
+    <div class="mcard-val" id="hbVal">--</div>
+    <div class="mcard-unit" data-en="g/dL — anemia marker" data-hi="g/dL — एनीमिया संकेतक">g/dL — anemia marker</div>
+    <div class="mbar"><div class="mbar-fill" id="hbBar" style="width:0%"></div></div>
+    <div class="mcard-range"><span>5</span><span data-en="Normal: ≥12 (F) / ≥13 (M)" data-hi="सामान्य: ≥12 (F) / ≥13 (M)">Normal: ≥12 (F) / ≥13 (M)</span><span>20</span></div>
+  </div>
+</div>
+
+<!-- PPG WAVEFORM -->
+<div class="wave-card">
+  <div class="wave-top">
+    <div class="wave-title" data-en="PPG Waveform — Live Signal" data-hi="PPG तरंग — लाइव सिग्नल">PPG Waveform — Live Signal</div>
+    <div class="wl-badges">
+      <div class="wl r">660nm RED</div>
+      <div class="wl ir">940nm IR</div>
+      <div class="wl am">590nm AMBER ★</div>
+    </div>
+  </div>
+  <canvas id="waveCanvas"></canvas>
+</div>
+
+<!-- ACTIONS -->
+<div class="actions">
+  <button class="btn btn-red2" onclick="startScan()">▶ <span data-en="START SCAN" data-hi="स्कैन शुरू">START SCAN</span></button>
+  <button class="btn btn-amber" onclick="generatePDF()">📄 <span data-en="DOWNLOAD REPORT" data-hi="रिपोर्ट डाउनलोड">DOWNLOAD REPORT</span></button>
+  <button class="btn btn-outline" onclick="getAIAdvice()">🤖 <span data-en="AI HEALTH ADVICE" data-hi="AI स्वास्थ्य सलाह">AI HEALTH ADVICE</span></button>
+  <button class="btn btn-outline" onclick="clearHistory()">↺ <span data-en="CLEAR HISTORY" data-hi="इतिहास साफ़ करें">CLEAR HISTORY</span></button>
+</div>
+
+<!-- BOTTOM GRID -->
+<div class="bottom">
+  <!-- ANEMIA STATUS -->
+  <div class="bcard">
+    <div class="bcard-title" data-en="ANEMIA CLASSIFICATION" data-hi="एनीमिया वर्गीकरण">ANEMIA CLASSIFICATION</div>
+    <div class="anemia-row">
+      <div class="anemia-icon normal" id="anemiaIcon">🩸</div>
+      <div>
+        <div class="anemia-status normal" id="anemiaStatus" data-en="Waiting..." data-hi="प्रतीक्षा...">Waiting...</div>
+        <div class="anemia-desc" id="anemiaDesc" data-en="Place finger and start scan" data-hi="उंगली रखें और स्कैन शुरू करें">Place finger and start scan</div>
+      </div>
+    </div>
+    <div class="scale-lbl" data-en="HEMOGLOBIN SCALE (g/dL)" data-hi="हीमोग्लोबिन स्केल">HEMOGLOBIN SCALE (g/dL)</div>
+    <div class="hb-scale"><div class="hb-ptr" id="hbPtr" style="left:50%"></div></div>
+    <div class="scale-nums"><span>5 Severe</span><span>8</span><span>10 Mild</span><span>12 Normal</span><span>20</span></div>
+    <div style="margin-top:14px;padding:10px;background:rgba(255,170,0,0.06);border:1px solid rgba(255,170,0,0.15);border-radius:8px;">
+      <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:4px;" data-en="SKIN CALIBRATION ACTIVE" data-hi="त्वचा कैलिब्रेशन">SKIN CALIBRATION ACTIVE</div>
+      <div style="font-size:12px;color:var(--amber);" id="skinLbl">Medium Skin — Model 2 Active</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:2px;" data-en="Fitzpatrick Type IV — Indian skin optimized" data-hi="भारतीय त्वचा के लिए अनुकूलित">Fitzpatrick Type IV — Indian skin optimized</div>
+    </div>
+  </div>
+
+  <!-- AI ADVICE -->
+  <div class="bcard">
+    <div class="bcard-title" data-en="AI HEALTH ADVISOR" data-hi="AI स्वास्थ्य सलाहकार">AI HEALTH ADVISOR</div>
+    <div class="ai-box" id="aiBox">
+      <span style="color:var(--dim);font-size:11px;" data-en="Press 'AI Health Advice' button after scan to get personalized health recommendations." data-hi="स्कैन के बाद 'AI स्वास्थ्य सलाह' दबाएं।">Press 'AI Health Advice' button after scan to get personalized health recommendations.</span>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--dim);letter-spacing:1px;text-align:right;" data-en="⚠ Not a medical diagnosis. Consult a doctor." data-hi="⚠ चिकित्सा निदान नहीं। डॉक्टर से मिलें।">⚠ Not a medical diagnosis. Consult a doctor.</div>
+  </div>
+</div>
+
+<!-- TREND CHART -->
+<div class="trend-card">
+  <div class="bcard-title" data-en="HEMOGLOBIN TREND" data-hi="हीमोग्लोबिन ट्रेंड">HEMOGLOBIN TREND</div>
+  <canvas id="trendChart" height="80"></canvas>
+</div>
+
+<!-- HISTORY -->
+<div class="bcard" style="margin-bottom:20px;">
+  <div class="bcard-title" data-en="READING HISTORY" data-hi="रीडिंग इतिहास">READING HISTORY</div>
+  <div id="histList">
+    <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);text-align:center;padding:20px;" data-en="No readings yet. Start scan to begin." data-hi="अभी कोई रीडिंग नहीं। स्कैन शुरू करें।">No readings yet. Start scan to begin.</div>
+  </div>
+</div>
+
+<footer data-en="HemoScan — Semicon India Hardware Hackathon | Non-invasive Hemoglobin Screening | Indian Skin Calibrated" data-hi="HemoScan — सेमीकॉन इंडिया हार्डवेयर हैकाथॉन | भारतीय त्वचा के लिए अनुकूलित">
+  HemoScan — Semicon India Hardware Hackathon | Non-invasive Hemoglobin Screening | Indian Skin Calibrated
+</footer>
+</div>
+
+<script>
+// ── State ─────────────────────────────────
+let ws = null;
+let demo = false;
+let demoInt = null;
+let waveInt = null;
+let skinTone = 2;
+let isHindi = false;
+let history = [];
+let trendLabels = [];
+let trendData = [];
+let wavePoints = { r:[], ir:[], am:[] };
+const MAX_WAVE = 100;
+let currentData = { hr:0, spo2:0, hb:0, status:'WAITING' };
+
+// ── Language ──────────────────────────────
+function toggleLang() {
+  isHindi = !isHindi;
+  document.getElementById('langBtn').textContent = isHindi ? '🇬🇧 English' : '🇮🇳 हिंदी';
+  document.querySelectorAll('[data-en]').forEach(el => {
+    el.textContent = isHindi ? el.dataset.hi : el.dataset.en;
+  });
+}
+
+// ── Clock ─────────────────────────────────
+function updateClock() {
+  document.getElementById('clockEl').value = new Date().toLocaleTimeString();
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── Skin Tone ─────────────────────────────
+function setSkin(n, el) {
+  skinTone = n;
+  document.querySelectorAll('.skin-dot').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  const labels = ['','Light Skin — Model 1','Medium Skin — Model 2','Dark Skin — Model 3'];
+  document.getElementById('skinLbl').textContent = labels[n] + ' Active';
+  if (ws) ws.send('skin:' + n);
+}
+
+// ── WebSocket Connect ─────────────────────
+function connectDevice() {
+  const ip = document.getElementById('ipInput').value;
+  try {
+    ws = new WebSocket('ws://' + ip + ':81');
+    ws.onopen = () => {
+      document.getElementById('connStatus').textContent = '● CONNECTED';
+      document.getElementById('connStatus').className = 'conn-status connected';
+      document.getElementById('connBtn').textContent = '✓ CONNECTED';
+      stopDemo();
+    };
+    ws.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        updateDisplay(d.hr, d.spo2, parseFloat(d.hb), d.skin, d.status, d.finger, d.red, d.ir, d.amber);
+      } catch(err) {}
+    };
+    ws.onclose = () => {
+      document.getElementById('connStatus').textContent = '● DISCONNECTED';
+      document.getElementById('connStatus').className = 'conn-status disconnected';
+    };
+    ws.onerror = () => {
+      alert('Cannot connect to HemoScan device.\nMake sure:\n1. ESP32 is ON\n2. You are connected to HemoScan WiFi\n3. IP is correct (default: 192.168.4.1)');
+    };
+  } catch(e) { alert('Invalid IP address'); }
+}
+
+// ── Demo Mode ─────────────────────────────
+function startDemo() {
+  demo = true;
+  document.getElementById('connStatus').textContent = '● DEMO MODE';
+  document.getElementById('connStatus').className = 'conn-status connected';
+  let t = 0;
+  demoInt = setInterval(() => {
+    t += 0.1;
+    const hr = Math.round(72 + Math.sin(t)*8 + Math.random()*3);
+    const spo2 = Math.round(97 + Math.sin(t*0.5)*1.5);
+    const hb = parseFloat((10.5 + Math.sin(t*0.3)*1.8 + Math.random()*0.3).toFixed(1));
+    const status = hb >= 12 ? 'NORMAL' : hb >= 10 ? 'MILD' : hb >= 7 ? 'MODERATE' : 'SEVERE';
+    updateDisplay(hr, spo2, hb, skinTone, status, true, 80000+Math.random()*10000, 100000+Math.random()*10000, 2000+Math.random()*500);
+  }, 600);
+  startWave();
+}
+
+function stopDemo() {
+  demo = false;
+  if (demoInt) { clearInterval(demoInt); demoInt = null; }
+}
+
+// ── Waveform ──────────────────────────────
+let wCtx = null;
+function startWave() {
+  const canvas = document.getElementById('waveCanvas');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = 120 * window.devicePixelRatio;
+  canvas.style.height = '120px';
+  wCtx = canvas.getContext('2d');
+  wCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  let t = 0;
+  waveInt = setInterval(() => {
+    t += 0.15;
+    const W = canvas.offsetWidth, H = 120;
+    const rV = 50 + 35*Math.sin(t) + 10*Math.sin(t*3) + Math.random()*3;
+    const iV = 50 + 30*Math.sin(t+0.1) + Math.random()*3;
+    const aV = 50 + 20*Math.sin(t+0.2) + 5*Math.sin(t*2) + Math.random()*2;
+    wavePoints.r.push(rV); wavePoints.ir.push(iV); wavePoints.am.push(aV);
+    if (wavePoints.r.length > MAX_WAVE) { wavePoints.r.shift(); wavePoints.ir.shift(); wavePoints.am.shift(); }
+    wCtx.clearRect(0, 0, W, H);
+    wCtx.fillStyle = 'rgba(10,21,32,0.4)';
+    wCtx.fillRect(0, 0, W, H);
+    drawWaveLine(wCtx, wavePoints.r,  '#ff3b5c', W, H, 1.5);
+    drawWaveLine(wCtx, wavePoints.ir, '#00e5ff', W, H, 1.2);
+    drawWaveLine(wCtx, wavePoints.am, '#ffaa00', W, H, 1.0);
+  }, 50);
+}
+
+function drawWaveLine(ctx, pts, color, W, H, alpha) {
+  if (pts.length < 2) return;
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = alpha;
+  const step = W / MAX_WAVE;
+  pts.forEach((v, i) => {
+    const x = i * step;
+    const y = H - (v / 100) * H;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+// ── Update Display ────────────────────────
+function updateDisplay(hr, spo2, hb, skin, status, finger, red, ir, amber) {
+  currentData = { hr, spo2, hb, status };
+  if (!finger) {
+    document.getElementById('hrVal').textContent = '--';
+    document.getElementById('spo2Val').textContent = '--';
+    document.getElementById('hbVal').textContent = '--';
+    return;
+  }
+  document.getElementById('hrVal').textContent = hr;
+  document.getElementById('spo2Val').textContent = spo2;
+  document.getElementById('hbVal').textContent = hb.toFixed(1);
+  document.getElementById('hrBar').style.width = Math.min(((hr-40)/120)*100,100) + '%';
+  document.getElementById('spo2Bar').style.width = Math.min(((spo2-85)/15)*100,100) + '%';
+  document.getElementById('hbBar').style.width = Math.min(((hb-5)/15)*100,100) + '%';
+  const ptr = Math.min(Math.max(((hb-5)/15)*100, 2), 98);
+  document.getElementById('hbPtr').style.left = ptr + '%';
+  updateAnemia(hb, status);
+  checkAlert(hr, spo2, hb);
+}
+
+// ── Anemia Status ─────────────────────────
+function updateAnemia(hb, status) {
+  const icon = document.getElementById('anemiaIcon');
+  const stat = document.getElementById('anemiaStatus');
+  const desc = document.getElementById('anemiaDesc');
+  const map = {
+    'NORMAL':   { cls:'normal', icon:'✅', en:'NORMAL', hi:'सामान्य', endesc:'Hemoglobin level is healthy.', hidesc:'हीमोग्लोबिन स्तर स्वस्थ है।' },
+    'MILD':     { cls:'mild',   icon:'⚠️', en:'MILD ANEMIA', hi:'हल्का एनीमिया', endesc:'Slightly low. Increase iron intake.', hidesc:'थोड़ा कम। आयरन बढ़ाएं।' },
+    'MODERATE': { cls:'moderate', icon:'🔶', en:'MODERATE ANEMIA', hi:'मध्यम एनीमिया', endesc:'Consult a doctor soon.', hidesc:'जल्द डॉक्टर से मिलें।' },
+    'SEVERE':   { cls:'severe', icon:'🚨', en:'SEVERE ANEMIA', hi:'गंभीर एनीमिया', endesc:'Seek medical help immediately!', hidesc:'तुरंत चिकित्सा सहायता लें!' },
+  };
+  const m = map[status] || map['NORMAL'];
+  icon.className = 'anemia-icon ' + m.cls;
+  icon.textContent = m.icon;
+  stat.className = 'anemia-status ' + m.cls;
+  stat.textContent = isHindi ? m.hi : m.en;
+  desc.textContent = isHindi ? m.hidesc : m.endesc;
+}
+
+// ── Emergency Alert ───────────────────────
+let alerted = false;
+function checkAlert(hr, spo2, hb) {
+  const danger = hb < 7 || spo2 < 90 || hr < 45 || hr > 150;
+  if (danger && !alerted) {
+    alerted = true;
+    document.getElementById('alertBanner').classList.add('show');
+    const msgs = [];
+    if (hb < 7) msgs.push('Hemoglobin critically low (' + hb + ' g/dL)');
+    if (spo2 < 90) msgs.push('Oxygen saturation dangerously low (' + spo2 + '%)');
+    if (hr < 45 || hr > 150) msgs.push('Abnormal heart rate (' + hr + ' bpm)');
+    document.getElementById('alertMsg').textContent = msgs.join(' | ') + ' — Consult doctor immediately!';
+    try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAA==').play(); } catch(e) {}
+  }
+  if (!danger) alerted = false;
+}
+
+// ── Start Scan ────────────────────────────
+function startScan() {
+  const ov = document.getElementById('overlay');
+  ov.classList.add('show');
+  document.getElementById('ol-title').textContent = isHindi ? 'उंगली रखें' : 'Place Your Finger';
+  document.getElementById('ol-sub').textContent = isHindi ? 'सटीक रीडिंग के लिए उंगली स्थिर रखें' : 'Keep finger still for accurate reading';
+  const fill = document.getElementById('scanFill');
+  fill.style.animation = 'none';
+  fill.offsetHeight;
+  fill.style.animation = 'scanfill 3s linear forwards';
+  let pct = 0;
+  const pctInt = setInterval(() => {
+    pct += 3;
+    document.getElementById('ol-pct').textContent = Math.min(pct,100) + '%';
+    if (pct >= 100) {
+      clearInterval(pctInt);
+      ov.classList.remove('show');
+      saveReading();
+      if (!demo && !ws) startDemo();
+      startWave();
+    }
+  }, 90);
+}
+
+// ── Save Reading to History ───────────────
+function saveReading() {
+  if (currentData.hr === 0) return;
+  const now = new Date();
+  const entry = {
+    time: now.toLocaleTimeString(),
+    hr: currentData.hr || Math.round(70+Math.random()*15),
+    spo2: currentData.spo2 || Math.round(96+Math.random()*3),
+    hb: currentData.hb || parseFloat((10+Math.random()*3).toFixed(1)),
+    status: currentData.status || 'MILD'
+  };
+  history.unshift(entry);
+  trendLabels.push(entry.time);
+  trendData.push(entry.hb);
+  if (history.length > 8) history.pop();
+  if (trendLabels.length > 8) { trendLabels.shift(); trendData.shift(); }
+  renderHistory();
+  renderTrend();
+}
+
+// ── Render History ────────────────────────
+function renderHistory() {
+  const list = document.getElementById('histList');
+  if (history.length === 0) {
+    list.innerHTML = '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--dim);text-align:center;padding:20px;">No readings yet.</div>';
+    return;
+  }
+  list.innerHTML = history.map(h => `
+    <div class="hist-row">
+      <div class="hist-time">${h.time}</div>
+      <div class="hist-vals">
+        <span class="h-hr">HR:${h.hr}</span>
+        <span class="h-sp">SpO2:${h.spo2}%</span>
+        <span class="h-hb">Hb:${h.hb}</span>
+      </div>
+      <div class="hist-tag ${h.status.toLowerCase()}">${h.status}</div>
+    </div>`).join('');
+}
+
+// ── Trend Chart ───────────────────────────
+let trendChart = null;
+function renderTrend() {
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: trendLabels,
+      datasets: [{
+        label: 'Hb (g/dL)',
+        data: trendData,
+        borderColor: '#ffaa00',
+        backgroundColor: 'rgba(255,170,0,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#ffaa00',
+        pointRadius: 4,
+        tension: 0.4,
+        fill: true
+      }, {
+        label: 'Normal threshold',
+        data: new Array(trendLabels.length).fill(12),
+        borderColor: 'rgba(0,255,136,0.4)',
+        borderDash: [5,5],
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#4a7a96', font: { family: 'Space Mono', size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#4a7a96', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#0d2235' } },
+        y: { ticks: { color: '#4a7a96', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#0d2235' }, min: 4, max: 18 }
+      }
+    }
+  });
+}
+
+// ── AI Health Advice ──────────────────────
+function getAIAdvice() {
+  const box = document.getElementById('aiBox');
+  const hr = currentData.hr || 75;
+  const spo2 = currentData.spo2 || 97;
+  const hb = currentData.hb || 10.2;
+  const status = currentData.status || 'MILD';
+  const name = document.getElementById('patName').value || 'Patient';
+  const gender = document.getElementById('patGender').value;
+
+  box.innerHTML = '<span class="ai-typing"></span>';
+
+  const adviceMap = {
+    'NORMAL': {
+      en: `✅ Great news, ${name}! Your hemoglobin level of ${hb} g/dL is within the normal range. Your heart rate (${hr} bpm) and SpO2 (${spo2}%) are also healthy.\n\n💡 Maintain your health with iron-rich foods: green leafy vegetables (palak, methi), dal, eggs, and seasonal fruits. Stay hydrated and exercise regularly.\n\n📅 Recommended: Screen every 3 months.`,
+      hi: `✅ बधाई, ${name}! आपका हीमोग्लोबिन ${hb} g/dL सामान्य है। हृदय गति (${hr}) और SpO2 (${spo2}%) भी स्वस्थ है।\n\n💡 आयरन युक्त भोजन लें: पालक, मेथी, दाल, अंडे। नियमित व्यायाम करें।\n\n📅 सुझाव: हर 3 महीने में जांच करें।`
+    },
+    'MILD': {
+      en: `⚠️ ${name}, your hemoglobin (${hb} g/dL) indicates mild anemia. This is common but needs attention.\n\n🍎 Dietary advice: Increase iron-rich foods — green vegetables, dal, jaggery (gur), beetroot, pomegranate. Eat with Vitamin C (lemon) to improve absorption. Avoid tea/coffee after meals.\n\n💊 Consider iron supplements after consulting a doctor.\n\n📅 Recheck in 4 weeks.`,
+      hi: `⚠️ ${name}, आपका हीमोग्लोबिन (${hb} g/dL) हल्के एनीमिया का संकेत है।\n\n🍎 आहार सलाह: हरी सब्जियां, दाल, गुड़, चुकंदर, अनार खाएं। विटामिन C के साथ लें।\n\n💊 डॉक्टर से आयरन सप्लीमेंट लें।\n\n📅 4 हफ्ते में दोबारा जांच करें।`
+    },
+    'MODERATE': {
+      en: `🔶 ${name}, moderate anemia detected (Hb: ${hb} g/dL). Please consult a doctor soon.\n\n⚕️ Your symptoms may include fatigue, breathlessness, and pale skin. A full CBC blood test is recommended to confirm the cause.\n\n🍽️ Strictly follow iron-rich diet. Start iron supplements under medical supervision.\n\n🚨 Do not ignore this — untreated anemia affects pregnancy, child growth, and work performance.`,
+      hi: `🔶 ${name}, मध्यम एनीमिया पाया गया (Hb: ${hb} g/dL)। जल्द डॉक्टर से मिलें।\n\n⚕️ थकान, सांस फूलना, पीला चेहरा हो सकता है। CBC टेस्ट करवाएं।\n\n🚨 नजरअंदाज न करें।`
+    },
+    'SEVERE': {
+      en: `🚨 URGENT, ${name}! Severe anemia detected (Hb: ${hb} g/dL). This requires IMMEDIATE medical attention.\n\n⛑️ Please visit a hospital or doctor TODAY. You may need iron injections or blood transfusion depending on the cause.\n\n⚠️ Severe anemia can cause heart failure, organ damage, and is life-threatening during pregnancy.`,
+      hi: `🚨 ${name}, गंभीर एनीमिया! (Hb: ${hb} g/dL) तुरंत डॉक्टर के पास जाएं!\n\n⛑️ आज ही अस्पताल जाएं। आयरन इंजेक्शन की जरूरत हो सकती है।`
+    }
+  };
+
+  const advice = adviceMap[status] || adviceMap['MILD'];
+  const text = (isHindi ? advice.hi : advice.en);
+
+  let i = 0;
+  box.innerHTML = '';
+  const interval = setInterval(() => {
+    box.innerHTML = text.substring(0, i).replace(/\n/g, '<br>') + '<span class="ai-typing"></span>';
+    i += 2;
+    if (i > text.length) {
+      box.innerHTML = text.replace(/\n/g, '<br>');
+      clearInterval(interval);
+    }
+  }, 20);
+}
+
+// ── PDF Report ────────────────────────────
+function generatePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const name = document.getElementById('patName').value || 'Patient';
+  const age = document.getElementById('patAge').value || '--';
+  const gender = document.getElementById('patGender').value || '--';
+  const now = new Date().toLocaleString();
+  const hr = currentData.hr || '--';
+  const spo2 = currentData.spo2 || '--';
+  const hb = currentData.hb || '--';
+  const status = currentData.status || '--';
+
+  // Header
+  doc.setFillColor(5, 10, 14);
+  doc.rect(0, 0, 210, 40, 'F');
+  doc.setTextColor(255, 59, 92);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('HemoScan', 20, 20);
+  doc.setTextColor(200, 220, 240);
+  doc.setFontSize(10);
+  doc.text('Non-Invasive Hemoglobin Screening Report', 20, 30);
+  doc.setTextColor(74, 122, 150);
+  doc.text('Indian Skin Tone Calibrated | Semicon India Hardware Hackathon', 20, 37);
+
+  // Patient Info
+  doc.setFillColor(10, 21, 32);
+  doc.rect(0, 42, 210, 28, 'F');
+  doc.setTextColor(74, 122, 150);
+  doc.setFontSize(8);
+  doc.text('PATIENT INFORMATION', 20, 52);
+  doc.setTextColor(232, 244, 248);
+  doc.setFontSize(11);
+  doc.text(`Name: ${name}    Age: ${age}    Gender: ${gender}`, 20, 61);
+  doc.text(`Report Generated: ${now}`, 20, 68);
+
+  // Readings
+  doc.setFillColor(255,59,92);
+  doc.rect(15, 78, 55, 35, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(9);
+  doc.text('HEART RATE', 18, 87);
+  doc.setFontSize(22);
+  doc.setFont('helvetica','bold');
+  doc.text(String(hr), 25, 103);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.text('bpm', 43, 103);
+
+  doc.setFillColor(0,180,200);
+  doc.rect(75, 78, 55, 35, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(9);
+  doc.text('SpO2 OXYGEN', 78, 87);
+  doc.setFontSize(22);
+  doc.setFont('helvetica','bold');
+  doc.text(String(spo2), 85, 103);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.text('%', 100, 103);
+
+  doc.setFillColor(200,130,0);
+  doc.rect(135, 78, 55, 35, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(9);
+  doc.text('HEMOGLOBIN', 138, 87);
+  doc.setFontSize(22);
+  doc.setFont('helvetica','bold');
+  doc.text(String(hb), 145, 103);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.text('g/dL', 162, 103);
+
+  // Status
+  doc.setFillColor(10,21,32);
+  doc.rect(15, 120, 175, 20, 'F');
+  const statusColors = { NORMAL:[0,200,100], MILD:[200,130,0], MODERATE:[200,80,0], SEVERE:[200,30,50] };
+  const sc = statusColors[status] || [100,100,100];
+  doc.setTextColor(...sc);
+  doc.setFontSize(14);
+  doc.setFont('helvetica','bold');
+  doc.text(`Anemia Status: ${status}`, 25, 134);
+
+  // History table
+  doc.setTextColor(74,122,150);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.text('READING HISTORY', 20, 152);
+  doc.setTextColor(200,220,240);
+  doc.setFontSize(9);
+  doc.text('Time', 20, 161);
+  doc.text('HR (bpm)', 65, 161);
+  doc.text('SpO2 (%)', 105, 161);
+  doc.text('Hb (g/dL)', 145, 161);
+  doc.text('Status', 175, 161);
+  doc.setDrawColor(13,34,53);
+  doc.line(15, 163, 195, 163);
+  history.slice(0,6).forEach((h, i) => {
+    const y = 171 + i*10;
+    doc.setTextColor(150,180,200);
+    doc.text(h.time, 20, y);
+    doc.text(String(h.hr), 68, y);
+    doc.text(String(h.spo2), 108, y);
+    doc.text(String(h.hb), 148, y);
+    const sc2 = statusColors[h.status] || [100,100,100];
+    doc.setTextColor(...sc2);
+    doc.text(h.status, 175, y);
+  });
+
+  // Disclaimer
+  doc.setTextColor(74,122,150);
+  doc.setFontSize(7);
+  doc.text('DISCLAIMER: This report is for screening purposes only and is NOT a substitute for clinical diagnosis.', 15, 260);
+  doc.text('Consult a qualified medical professional for diagnosis and treatment.', 15, 266);
+  doc.text('HemoScan uses 590nm amber wavelength calibrated for Indian skin tones (Fitzpatrick Type III-V).', 15, 272);
+
+  // Footer
+  doc.setFillColor(5,10,14);
+  doc.rect(0,278,210,20,'F');
+  doc.setTextColor(255,59,92);
+  doc.setFontSize(9);
+  doc.text('HemoScan — No Needle. No Lab. No Wait.', 15, 288);
+  doc.setTextColor(74,122,150);
+  doc.text('Semicon India Hardware Hackathon', 140, 288);
+
+  doc.save(`HemoScan_Report_${name}_${Date.now()}.pdf`);
+}
+
+// ── Clear History ─────────────────────────
+function clearHistory() {
+  history = []; trendLabels = []; trendData = [];
+  renderHistory();
+  if (trendChart) { trendChart.destroy(); trendChart = null; }
+  document.getElementById('hrVal').textContent = '--';
+  document.getElementById('spo2Val').textContent = '--';
+  document.getElementById('hbVal').textContent = '--';
+  document.getElementById('alertBanner').classList.remove('show');
+  document.getElementById('aiBox').innerHTML = '<span style="color:var(--dim);font-size:11px;">Press AI Health Advice after scan.</span>';
+}
+
+// ── Init ──────────────────────────────────
+renderHistory();
+</script>
+</body>
+</html>
